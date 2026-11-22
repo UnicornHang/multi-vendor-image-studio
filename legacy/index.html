@@ -1,0 +1,1204 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>MiniMax Image Studio · 多厂商图像生成工作台</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --bg-soft: #11141c;
+    --panel: #151925;
+    --panel-2: #1b2030;
+    --line: #262c3d;
+    --line-soft: #1f2434;
+    --txt: #e6e9f2;
+    --txt-dim: #97a0b8;
+    --txt-mute: #6b7490;
+    --accent: #7c5cff;
+    --accent-2: #21d4a4;
+    --accent-3: #ff7a59;
+    --danger: #ff5c7a;
+    --warn: #ffb547;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --shadow: 0 18px 50px -22px rgba(0, 0, 0, 0.9);
+    --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: "PingFang SC", "Microsoft YaHei", "Noto Sans SC", -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 620px at 8% -8%, rgba(124, 92, 255, 0.16), transparent 62%),
+      radial-gradient(900px 560px at 98% 0%, rgba(33, 212, 164, 0.11), transparent 58%),
+      var(--bg);
+    color: var(--txt);
+    font-size: 14px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: var(--accent-2); }
+  button, input, select, textarea { font-family: inherit; font-size: inherit; color: inherit; }
+
+  .app { max-width: 1580px; margin: 0 auto; padding: 22px 22px 64px; }
+  header.top {
+    display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+    padding: 16px 20px; margin-bottom: 18px;
+    background: linear-gradient(135deg, rgba(124,92,255,0.16), rgba(33,212,164,0.08) 55%, transparent);
+    border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  }
+  .logo {
+    width: 44px; height: 44px; flex: none; border-radius: 12px;
+    background: conic-gradient(from 210deg, var(--accent), var(--accent-2), var(--accent-3), var(--accent));
+    display: grid; place-items: center; font-size: 22px;
+    box-shadow: 0 6px 22px -6px rgba(124,92,255,0.8);
+  }
+  .top h1 { margin: 0; font-size: 19px; letter-spacing: 0.4px; }
+  .top p { margin: 2px 0 0; font-size: 12.5px; color: var(--txt-dim); }
+  .top .spacer { flex: 1 1 auto; }
+  .pill {
+    display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px;
+    font-size: 12px; color: var(--txt-dim); background: rgba(255,255,255,0.03); border: 1px solid var(--line);
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-mute); }
+  .dot.on { background: var(--accent-2); box-shadow: 0 0 0 3px rgba(33,212,164,0.15); }
+  .dot.busy { background: var(--warn); box-shadow: 0 0 0 3px rgba(255,181,71,0.16); animation: pulse 1s infinite; }
+  .dot.err { background: var(--danger); box-shadow: 0 0 0 3px rgba(255,92,122,0.16); }
+  @keyframes pulse { 50% { opacity: 0.35; } }
+
+  .layout { display: grid; grid-template-columns: minmax(400px, 470px) minmax(0, 1fr); gap: 18px; align-items: start; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
+  .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden;
+  }
+  .card > .card-head {
+    display: flex; align-items: center; gap: 9px; padding: 13px 16px;
+    border-bottom: 1px solid var(--line-soft);
+    background: linear-gradient(180deg, rgba(255,255,255,0.035), transparent);
+    cursor: pointer; user-select: none;
+  }
+  .card > .card-head h2 { margin: 0; font-size: 13.5px; letter-spacing: 0.3px; }
+  .card > .card-head .ico { font-size: 14px; }
+  .card > .card-head .spacer { flex: 1; }
+  .card > .card-head .chev { color: var(--txt-mute); font-size: 11px; transition: transform .18s; }
+  .card.collapsed > .card-head .chev { transform: rotate(-90deg); }
+  .card.collapsed > .card-body { display: none; }
+  .card-body { padding: 15px 16px 17px; display: flex; flex-direction: column; gap: 13px; }
+  .subcard { border: 1px dashed var(--line); border-radius: var(--radius-sm); padding: 12px; background: rgba(255,255,255,0.015); }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label { font-size: 12px; color: var(--txt-dim); display: flex; align-items: center; gap: 8px; }
+  .field .hint { font-size: 11.5px; color: var(--txt-mute); }
+  input[type="text"], input[type="password"], input[type="number"], select, textarea {
+    width: 100%; background: var(--bg-soft); border: 1px solid var(--line);
+    border-radius: var(--radius-sm); padding: 9px 11px; outline: none;
+    transition: border-color .15s, box-shadow .15s;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,0.16); }
+  textarea { resize: vertical; min-height: 74px; line-height: 1.65; }
+  textarea.prompt-area { min-height: 96px; }
+  textarea.prompt-area.mini { min-height: 62px; }
+  textarea.code { font-family: var(--mono); font-size: 12px; }
+  select {
+    appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--txt-mute) 50%), linear-gradient(135deg, var(--txt-mute) 50%, transparent 50%);
+    background-position: calc(100% - 16px) 52%, calc(100% - 11px) 52%;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat; padding-right: 32px;
+  }
+  .row { display: grid; gap: 11px; }
+  .row.c2 { grid-template-columns: 1fr 1fr; }
+  .row.c3 { grid-template-columns: 1fr 1fr 1fr; }
+  .inline { display: flex; align-items: center; gap: 8px; }
+  .inline.wrap { flex-wrap: wrap; }
+  .check { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--txt-dim); cursor: pointer; }
+  .check input { accent-color: var(--accent); width: 15px; height: 15px; }
+  .tag {
+    font-size: 11px; padding: 2px 8px; border-radius: 999px;
+    background: rgba(124,92,255,0.16); border: 1px solid rgba(124,92,255,0.4); color: #c9bcff;
+  }
+
+  .btn {
+    border: 1px solid var(--line); background: var(--panel-2); border-radius: var(--radius-sm);
+    padding: 8px 13px; cursor: pointer; transition: .15s; white-space: nowrap;
+  }
+  .btn:hover:not(:disabled) { border-color: var(--accent); color: #fff; transform: translateY(-1px); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.primary { background: linear-gradient(135deg, var(--accent), #5b3ce0); border-color: transparent; color: #fff; font-weight: 600; box-shadow: 0 10px 26px -14px rgba(124,92,255,0.95); }
+  .btn.ghost { background: transparent; }
+  .btn.tiny { padding: 4px 9px; font-size: 12px; border-radius: 7px; }
+  .btn.danger:hover { border-color: var(--danger); color: var(--danger); }
+  .gen-bar { display: flex; gap: 10px; align-items: center; }
+  .gen-bar .btn.primary { flex: 1; padding: 12px 16px; font-size: 15px; }
+
+  .char-count { font-family: var(--mono); font-size: 11px; color: var(--txt-mute); }
+  .preview-box {
+    background: var(--bg-soft); border: 1px dashed var(--line); border-radius: var(--radius-sm);
+    padding: 10px 12px; font-size: 12.5px; color: var(--txt-dim); max-height: 160px; overflow: auto;
+    white-space: pre-wrap; word-break: break-word; font-family: var(--mono); line-height: 1.7;
+  }
+  .ref-preview { position: relative; border-radius: var(--radius-sm); overflow: hidden; border: 1px solid var(--line); background: var(--bg-soft); }
+  .ref-preview img { display: block; width: 100%; max-height: 190px; object-fit: contain; }
+  .ref-preview .rm { position: absolute; top: 7px; right: 7px; }
+
+  .grid-imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 12px; }
+  .img-cell {
+    position: relative; border-radius: var(--radius-sm); overflow: hidden;
+    background: var(--bg-soft); border: 1px solid var(--line); cursor: zoom-in; aspect-ratio: 1/1;
+  }
+  .img-cell img { width: 100%; height: 100%; object-fit: contain; display: block; }
+  .img-cell .tools {
+    position: absolute; left: 0; right: 0; bottom: 0; display: flex; gap: 6px; padding: 8px;
+    background: linear-gradient(transparent, rgba(0,0,0,0.82)); opacity: 0; transition: opacity .18s;
+  }
+  .img-cell:hover .tools { opacity: 1; }
+  .img-cell .tools .btn { background: rgba(0,0,0,0.55); backdrop-filter: blur(4px); border-color: rgba(255,255,255,0.14); }
+
+  .empty { color: var(--txt-mute); text-align: center; padding: 42px 16px; font-size: 13px; }
+  .empty .big { font-size: 34px; margin-bottom: 10px; opacity: .55; }
+
+  .hist-item { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 12px; padding: 11px 0; border-bottom: 1px dashed var(--line-soft); }
+  .hist-item:last-child { border-bottom: none; }
+  .hist-item img { width: 92px; height: 92px; object-fit: cover; border-radius: 9px; border: 1px solid var(--line); cursor: zoom-in; background: var(--bg-soft); }
+  .hist-meta { min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+  .hist-meta .p { font-size: 12.5px; color: var(--txt-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .hist-meta .t { font-family: var(--mono); font-size: 11px; color: var(--txt-mute); }
+  .hist-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
+
+  .log {
+    font-family: var(--mono); font-size: 11.5px; max-height: 210px; overflow: auto;
+    background: #0a0c11; border: 1px solid var(--line-soft); border-radius: var(--radius-sm);
+    padding: 10px 12px; white-space: pre-wrap; word-break: break-all; line-height: 1.65;
+  }
+  .log .t { color: var(--txt-mute); }
+  .log .ok { color: var(--accent-2); }
+  .log .warn { color: var(--warn); }
+  .log .err { color: var(--danger); }
+  .log .info { color: #8fb8ff; }
+
+  .lightbox { position: fixed; inset: 0; z-index: 99; background: rgba(4,6,10,0.93); display: none; place-items: center; padding: 30px; backdrop-filter: blur(6px); }
+  .lightbox.on { display: grid; }
+  .lightbox img { max-width: 92vw; max-height: 86vh; border-radius: 10px; box-shadow: 0 30px 80px -20px #000; }
+  .lightbox .lb-bar { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
+
+  .notice { font-size: 12px; color: var(--warn); background: rgba(255,181,71,0.08); border: 1px solid rgba(255,181,71,0.28); border-radius: var(--radius-sm); padding: 9px 11px; line-height: 1.6; }
+  .notice code { font-family: var(--mono); color: #ffd28a; }
+  .notice.info { color: var(--txt-dim); background: rgba(143,184,255,0.06); border-color: rgba(143,184,255,0.22); }
+  .notice.info code { color: #a9c9ff; }
+  .kv { display: flex; justify-content: space-between; font-size: 12px; color: var(--txt-mute); font-family: var(--mono); }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="app">
+
+  <header class="top">
+    <div class="logo">🎨</div>
+    <div>
+      <h1>Multi-Vendor Image Studio</h1>
+      <p>通用适配器 · 多厂商图像生成 · 多行画面描述 · 历史留档</p>
+    </div>
+    <div class="spacer"></div>
+    <span class="pill"><span class="dot" id="statusDot"></span><span id="statusText">未配置</span></span>
+    <button class="btn tiny" id="btnSaveCfg">保存配置</button>
+    <button class="btn tiny ghost" id="btnResetCfg">重置</button>
+  </header>
+
+  <div class="layout">
+
+    <!-- ============ 左：控制台 ============ -->
+    <div class="col">
+
+      <!-- 适配器 -->
+      <section class="card" id="cardAdapter">
+        <div class="card-head"><span class="ico">🔌</span><h2>适配器（厂商 / 模式）</h2><span class="spacer"></span><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="row c2">
+            <div class="field">
+              <label>厂商 Provider</label>
+              <select id="providerSel"></select>
+            </div>
+            <div class="field" id="modeField">
+              <label>模式 Mode</label>
+              <select id="modeSel"></select>
+            </div>
+          </div>
+          <div class="field">
+            <label>Base URL</label>
+            <input type="text" id="baseUrl" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label>请求路径 Path <span class="hint">支持 <code>{model}</code> 占位符</span></label>
+            <input type="text" id="path" spellcheck="false" />
+          </div>
+          <div class="row c2">
+            <div class="field">
+              <label>鉴权头 Header</label>
+              <input type="text" id="authHeader" spellcheck="false" />
+            </div>
+            <div class="field">
+              <label>鉴权前缀 Prefix</label>
+              <input type="text" id="authPrefix" spellcheck="false" />
+            </div>
+          </div>
+          <div class="field">
+            <label>API Key <span class="hint" id="keyScopeHint">全厂商共用</span></label>
+            <div class="inline">
+              <input type="password" id="apiKey" placeholder="sk-..." autocomplete="off" />
+              <button class="btn tiny" id="btnToggleKey" title="显示 / 隐藏">👁</button>
+            </div>
+          </div>
+          <div class="field">
+            <label class="check"><input type="checkbox" id="shareKey" checked /> 所有厂商共用同一个 Key</label>
+            <div id="providerKeyWrap" class="hidden">
+              <input type="password" id="providerKey" placeholder="仅当前厂商的 Key（覆盖全局）" autocomplete="off" />
+            </div>
+          </div>
+          <div class="field">
+            <label>代理前缀 <span class="hint">可选，解决浏览器 CORS 限制</span></label>
+            <input type="text" id="proxyPrefix" placeholder="留空则直连厂商" spellcheck="false" />
+          </div>
+          <div class="field">
+            <label>模型 Model</label>
+            <input type="text" id="model" list="modelList" spellcheck="false" />
+            <datalist id="modelList"></datalist>
+          </div>
+          <div class="notice" id="adapterNote"></div>
+        </div>
+      </section>
+
+      <!-- 生成参数 -->
+      <section class="card" id="cardParams">
+        <div class="card-head"><span class="ico">⚙️</span><h2>生成参数</h2><span class="spacer"></span><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="row c2">
+            <div class="field">
+              <label id="aspectLabel">画面比例</label>
+              <select id="aspect"></select>
+            </div>
+            <div class="field">
+              <label>生成数量 n</label>
+              <input type="number" id="n" min="1" max="9" value="1" />
+            </div>
+          </div>
+          <div class="row c2">
+            <div class="field" id="qualityField">
+              <label>质量 quality</label>
+              <select id="quality"></select>
+            </div>
+            <div class="field" id="responseFormatField">
+              <label>返回格式 response_format</label>
+              <select id="responseFormat"></select>
+            </div>
+          </div>
+          <div class="row c2">
+            <div class="field" id="seedField">
+              <label>随机种子 seed</label>
+              <div class="inline">
+                <input type="number" id="seed" placeholder="留空 = 随机" />
+                <button class="btn tiny" id="btnRandSeed" title="随机种子">🎲</button>
+              </div>
+            </div>
+            <div class="field" id="optimizerField">
+              <label>提示词优化</label>
+              <label class="check"><input type="checkbox" id="optimizer" /> prompt_optimizer</label>
+            </div>
+          </div>
+          <div class="field" id="negativeModeField">
+            <label>负向提示词处理方式</label>
+            <select id="negativeMode"></select>
+          </div>
+          <div class="field">
+            <label>附加自定义参数 <span class="hint">JSON 对象，合并进请求体</span></label>
+            <textarea id="extraJson" class="prompt-area mini code" spellcheck="false" placeholder='{"width": 1024}'></textarea>
+          </div>
+          <div class="subcard hidden" id="customBodyCard">
+            <div class="field">
+              <label>请求体模板 <span class="hint">占位符：{{model}} {{prompt}} {{negative}} {{aspect}} {{n}} {{seed}} {{quality}} {{refBase64}}</span></label>
+              <textarea id="bodyTemplate" class="prompt-area code" spellcheck="false"></textarea>
+            </div>
+            <div class="field">
+              <label>响应取值路径 <span class="hint">如 data.image_urls / data[].url / predictions[].bytesBase64Encoded</span></label>
+              <input type="text" id="respPath" spellcheck="false" />
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 画面描述 -->
+      <section class="card" id="cardPrompt">
+        <div class="card-head"><span class="ico">✍️</span><h2>画面描述（多行文本）</h2><span class="spacer"></span><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="field">
+            <label>主体描述 <span class="hint">必填</span> <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-main">0</span></label>
+            <textarea id="pMain" class="prompt-area" spellcheck="false" placeholder="例：一位穿白色风衣的女孩站在雨夜的东京街头，霓虹灯牌倒映在积水里"></textarea>
+          </div>
+          <div class="field">
+            <label>风格 <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-style">0</span></label>
+            <textarea id="pStyle" class="prompt-area mini" spellcheck="false" placeholder="例：赛博朋克电影感，35mm 胶片质感，浅景深"></textarea>
+          </div>
+          <div class="field">
+            <label>场景与细节 <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-detail">0</span></label>
+            <textarea id="pDetail" class="prompt-area mini" spellcheck="false" placeholder="例：湿漉漉的柏油路面、便利店自动门、飘动的伞"></textarea>
+          </div>
+          <div class="field">
+            <label>光影与色调 <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-light">0</span></label>
+            <textarea id="pLight" class="prompt-area mini" spellcheck="false" placeholder="例：冷蓝主调 + 洋红霓虹补光，体积光，高对比"></textarea>
+          </div>
+          <div class="field">
+            <label>构图与镜头 <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-cam">0</span></label>
+            <textarea id="pCam" class="prompt-area mini" spellcheck="false" placeholder="例：低机位仰拍，居中构图，50mm"></textarea>
+          </div>
+          <div class="field">
+            <label>负向提示词 <span class="spacer" style="flex:1"></span><span class="char-count" id="cnt-neg">0</span></label>
+            <textarea id="pNegative" class="prompt-area mini" spellcheck="false" placeholder="例：低分辨率，文字水印，多余手指，畸变"></textarea>
+          </div>
+          <div class="field">
+            <label>最终提示词预览 <span class="hint">按顺序拼接</span></label>
+            <div class="preview-box" id="promptPreview">（请先填写主体描述）</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 参考图 -->
+      <section class="card collapsed" id="cardRef">
+        <div class="card-head"><span class="ico">🖼️</span><h2>参考图 subject_reference</h2><span class="spacer"></span><span class="chev">▼</span></div>
+        <div class="card-body">
+          <div class="notice info" id="refSupportNote"></div>
+          <div class="field">
+            <label>参考图类型</label>
+            <select id="refType">
+              <option value="character">character（保持主体一致）</option>
+              <option value="general">general（风格参考）</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>上传参考图</label>
+            <input type="file" id="refFile" accept="image/*" />
+            <span class="hint" id="refName"></span>
+          </div>
+          <div id="refPreviewWrap" style="display:none">
+            <div class="ref-preview">
+              <img id="refPreview" alt="参考图预览" />
+              <button class="btn tiny danger rm" id="btnClearRef">移除</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><span class="ico">🚀</span><h2>生成</h2></div>
+        <div class="card-body">
+          <div class="gen-bar">
+            <button class="btn primary" id="btnGenerate">开始生成</button>
+            <button class="btn" id="btnCancel" disabled>取消</button>
+          </div>
+          <div class="kv"><span>Ctrl + Enter</span><span>快捷提交</span></div>
+        </div>
+      </section>
+
+    </div>
+
+    <!-- ============ 右：结果 ============ -->
+    <div class="col">
+      <section class="card">
+        <div class="card-head"><span class="ico">🖼️</span><h2>生成结果</h2><span class="spacer"></span><span class="pill" id="resultMeta">—</span></div>
+        <div class="card-body">
+          <div id="currentResult">
+            <div class="empty"><div class="big">✨</div>还没有结果。填写左侧描述后点击「开始生成」。</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="card">
+        <div class="card-head"><span class="ico">🗂️</span><h2>历史记录</h2><span class="spacer"></span>
+          <button class="btn tiny ghost danger" id="btnClearHistory">清空历史</button>
+        </div>
+        <div class="card-body"><div id="historyList"><div class="empty">暂无历史记录</div></div></div>
+      </section>
+
+      <section class="card collapsed" id="cardLog">
+        <div class="card-head"><span class="ico">📋</span><h2>运行日志</h2><span class="spacer"></span><span class="chev">▼</span></div>
+        <div class="card-body"><div class="log" id="logBox"></div></div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<div class="lightbox" id="lightbox">
+  <img id="lightboxImg" alt="预览" />
+  <div class="lb-bar">
+    <button class="btn" id="lbClose">关闭</button>
+    <button class="btn" id="lbDownload">下载原图</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const $ = (id) => document.getElementById(id);
+  const LS_CFG = "mm.image.studio.cfg";
+  const LS_HIS = "mm.image.studio.history";
+
+  /* ======================================================================
+   * 通用适配层：厂商 profile → 模式 mode → 端点 / 鉴权 / 请求体 / 响应取值
+   * 新增厂商只需在此注册一个 profile。
+   * ==================================================================== */
+  const ASPECTS = {
+    minimax: [["1:1", "1:1"], ["16:9", "16:9"], ["4:3", "4:3"], ["3:2", "3:2"], ["2:3", "2:3"], ["3:4", "3:4"], ["9:16", "9:16"], ["21:9", "21:9"]],
+    openai: [["1:1 · 1024×1024", "1024x1024"], ["横图 3:2 · 1536×1024", "1536x1024"], ["竖图 2:3 · 1024×1536", "1024x1536"], ["自动", "auto"]],
+    geminiImagen: [["1:1", "1:1"], ["3:4", "3:4"], ["4:3", "4:3"], ["9:16", "9:16"], ["16:9", "16:9"]],
+    geminiImage: [["1:1", "1:1"], ["2:3", "2:3"], ["3:2", "3:2"], ["3:4", "3:4"], ["4:3", "4:3"], ["4:5", "4:5"], ["5:4", "5:4"], ["9:16", "9:16"], ["16:9", "16:9"], ["21:9", "21:9"]]
+  };
+
+  const PROFILES = {
+    minimax: {
+      label: "MiniMax",
+      note: "端点 <code>POST {base}/v1/image_generation</code>；响应图片位于 <code>data.image_urls[]</code>（base64 模式下为 <code>data.images[]</code>）。",
+      modes: [{
+        id: "image_generation",
+        label: "image-01 / image-01-live",
+        defaults: { baseUrl: "https://api.minimaxi.com", path: "/v1/image_generation", authHeader: "Authorization", authPrefix: "Bearer ", model: "image-01", aspect: "1:1", responseFormat: "url", optimizer: true },
+        models: ["image-01", "image-01-live"],
+        aspectOptions: ASPECTS.minimax,
+        aspectLabel: "画面比例 aspect_ratio",
+        responseFormats: [["url", "url（图片直链）"], ["base64", "base64（内嵌数据）"]],
+        qualities: [],
+        negativeModes: [["inline", "拼接到提示词末尾（兼容性最好）"], ["field", "以 negative_prompt 字段发送"], ["off", "不使用"]],
+        supports: { quality: false, seed: true, optimizer: true, responseFormat: true, reference: true, refType: "minimax" },
+        build(ctx) {
+          const b = { model: ctx.model, prompt: ctx.prompt, aspect_ratio: ctx.aspect, response_format: ctx.responseFormat, n: ctx.n, prompt_optimizer: !!ctx.optimizer };
+          if (ctx.seed !== null && ctx.seed !== undefined && ctx.seed !== "") b.seed = Number(ctx.seed);
+          if (ctx.negative) b.negative_prompt = ctx.negative;
+          if (ctx.ref) b.subject_reference = [{ type: ctx.ref.type, image_file: ctx.ref.base64 }];
+          return b;
+        },
+        extract(json) {
+          const out = [];
+          const urls = json?.data?.image_urls || [];
+          urls.forEach(u => out.push({ src: u, type: "url" }));
+          const b64 = json?.data?.images || [];
+          b64.forEach(b => out.push({ src: String(b).startsWith("data:") ? b : "data:image/png;base64," + b, type: "base64" }));
+          return out;
+        }
+      }]
+    },
+
+    openai: {
+      label: "OpenAI 兼容",
+      note: "端点 <code>POST {base}/v1/images/generations</code>，兼容 gpt-image-1 / DALL·E 3 及各类聚合网关；响应位于 <code>data[].url</code> 或 <code>data[].b64_json</code>。",
+      modes: [{
+        id: "images_generations",
+        label: "/v1/images/generations",
+        defaults: { baseUrl: "https://api.openai.com", path: "/v1/images/generations", authHeader: "Authorization", authPrefix: "Bearer ", model: "gpt-image-1", aspect: "1024x1024", responseFormat: "b64_json", optimizer: false },
+        models: ["gpt-image-1", "dall-e-3", "dall-e-2"],
+        aspectOptions: ASPECTS.openai,
+        aspectLabel: "画面尺寸 size",
+        responseFormats: [["b64_json", "b64_json（内嵌数据）"], ["url", "url（图片直链）"]],
+        qualities: [["low", "low"], ["medium", "medium"], ["high", "high"], ["standard", "standard（DALL·E 3）"], ["hd", "hd（DALL·E 3）"]],
+        negativeModes: [["inline", "拼接到提示词末尾"], ["off", "不使用"]],
+        supports: { quality: true, seed: true, optimizer: false, responseFormat: true, reference: false },
+        build(ctx) {
+          const b = { model: ctx.model, prompt: ctx.prompt, n: ctx.n };
+          if (ctx.aspect && ctx.aspect !== "auto") b.size = ctx.aspect;
+          if (ctx.quality) b.quality = ctx.quality;
+          // gpt-image-1 只返回 b64_json，不接受 response_format 字段
+          if (!/^gpt-image/i.test(ctx.model)) b.response_format = ctx.responseFormat;
+          if (ctx.seed !== null && ctx.seed !== undefined && ctx.seed !== "") b.seed = Number(ctx.seed);
+          return b;
+        },
+        extract(json) {
+          const out = [];
+          (json?.data || []).forEach(d => {
+            if (d?.url) out.push({ src: d.url, type: "url" });
+            else if (d?.b64_json) out.push({ src: "data:image/png;base64," + d.b64_json, type: "base64" });
+          });
+          return out;
+        }
+      }]
+    },
+
+    gemini: {
+      label: "Google Gemini / Imagen",
+      note: "鉴权走 <code>x-goog-api-key</code> 头。Imagen 走 <code>:predict</code>，Gemini 图像模型走 <code>:generateContent</code>。",
+      modes: [{
+        id: "imagen",
+        label: "Imagen（:predict）",
+        defaults: { baseUrl: "https://generativelanguage.googleapis.com", path: "/v1beta/models/{model}:predict", authHeader: "x-goog-api-key", authPrefix: "", model: "imagen-3.0-generate-002", aspect: "1:1", responseFormat: "", optimizer: false },
+        models: ["imagen-3.0-generate-002", "imagen-3.0-capability-001"],
+        aspectOptions: ASPECTS.geminiImagen,
+        aspectLabel: "画面比例 aspectRatio",
+        responseFormats: [],
+        qualities: [],
+        negativeModes: [["field", "parameters.negativePrompt（原生支持）"], ["inline", "拼接到提示词末尾"], ["off", "不使用"]],
+        supports: { quality: false, seed: false, optimizer: false, responseFormat: false, reference: false },
+        build(ctx) {
+          const p = { sampleCount: ctx.n, aspectRatio: ctx.aspect };
+          if (ctx.negative) p.negativePrompt = ctx.negative;
+          return { instances: [{ prompt: ctx.prompt }], parameters: p };
+        },
+        extract(json) {
+          const out = [];
+          (json?.predictions || []).forEach(p => {
+            if (p?.bytesBase64Encoded) out.push({ src: `data:${p.mimeType || "image/png"};base64,${p.bytesBase64Encoded}`, type: "base64" });
+            else if (p?.url) out.push({ src: p.url, type: "url" });
+          });
+          return out;
+        }
+      }, {
+        id: "gemini-image",
+        label: "Gemini 图像模型（:generateContent）",
+        defaults: { baseUrl: "https://generativelanguage.googleapis.com", path: "/v1beta/models/{model}:generateContent", authHeader: "x-goog-api-key", authPrefix: "", model: "gemini-2.5-flash-image", aspect: "1:1", responseFormat: "", optimizer: false },
+        models: ["gemini-2.5-flash-image", "gemini-3-pro-image-preview"],
+        aspectOptions: ASPECTS.geminiImage,
+        aspectLabel: "画面比例 aspectRatio",
+        responseFormats: [],
+        qualities: [],
+        negativeModes: [["inline", "拼接到提示词末尾"], ["off", "不使用"]],
+        supports: { quality: false, seed: false, optimizer: false, responseFormat: false, reference: false },
+        build(ctx) {
+          const gc = { responseModalities: ["IMAGE"] };
+          if (ctx.aspect) gc.imageConfig = { aspectRatio: ctx.aspect };
+          return { contents: [{ role: "user", parts: [{ text: ctx.prompt }] }], generationConfig: gc };
+        },
+        extract(json) {
+          const out = [];
+          (json?.candidates || []).forEach(c => (c?.content?.parts || []).forEach(p => {
+            if (p?.inlineData?.data) out.push({ src: `data:${p.inlineData.mimeType || "image/png"};base64,${p.inlineData.data}`, type: "base64" });
+          }));
+          return out;
+        }
+      }]
+    },
+
+    custom: {
+      label: "自定义（模板）",
+      note: "用模板对接任意厂商。请求体占位符：<code>{{model}} {{prompt}} {{negative}} {{aspect}} {{n}} {{seed}} {{quality}} {{refBase64}}</code>；响应路径支持 <code>a.b[]</code> 与 <code>a[].b</code>。",
+      modes: [{
+        id: "custom",
+        label: "自定义模板",
+        defaults: {
+          baseUrl: "https://api.example.com", path: "/v1/images/generations", authHeader: "Authorization", authPrefix: "Bearer ",
+          model: "", aspect: "1:1", responseFormat: "", optimizer: false,
+          bodyTemplate: '{\n  "model": "{{model}}",\n  "prompt": "{{prompt}}",\n  "size": "{{aspect}}",\n  "n": {{n}}\n}',
+          respPath: "data[].url"
+        },
+        models: [],
+        aspectOptions: ASPECTS.minimax,
+        aspectLabel: "比例（写入 {{aspect}}）",
+        responseFormats: [],
+        qualities: [],
+        negativeModes: [["field", "写入 {{negative}}"], ["inline", "拼接到提示词末尾"], ["off", "不使用"]],
+        supports: { quality: true, seed: true, optimizer: true, responseFormat: true, reference: true, refType: "custom" },
+        build(ctx) {
+          const vars = {
+            model: ctx.model, prompt: ctx.prompt, negative: ctx.negative || "",
+            aspect: ctx.aspect, n: ctx.n, seed: ctx.seed === null || ctx.seed === undefined || ctx.seed === "" ? "" : ctx.seed,
+            quality: ctx.quality || "", refBase64: ctx.ref ? ctx.ref.base64 : ""
+          };
+          let tpl = ctx.bodyTemplate || "{}";
+          for (const [k, v] of Object.entries(vars)) {
+            tpl = tpl.split(`{{${k}}}`).join(String(v));
+          }
+          try {
+            return JSON.parse(tpl);
+          } catch (e) {
+            throw new Error("请求体模板解析失败：" + e.message);
+          }
+        },
+        extract(json) {
+          const path = ctxPath();
+          const vals = resolvePath(json, path);
+          const out = [];
+          vals.forEach(v => {
+            if (typeof v === "string") {
+              out.push(v.startsWith("data:") ? { src: v, type: "base64" } : { src: v, type: "url" });
+            } else if (v && typeof v === "object") {
+              if (v.url) out.push({ src: v.url, type: "url" });
+              else if (v.b64_json) out.push({ src: "data:image/png;base64," + v.b64_json, type: "base64" });
+              else if (v.bytesBase64Encoded) out.push({ src: `data:${v.mimeType || "image/png"};base64,${v.bytesBase64Encoded}`, type: "base64" });
+              else if (v.image_url?.url) out.push({ src: v.image_url.url, type: "url" });
+            }
+          });
+          return out;
+        }
+      }]
+    }
+  };
+
+  /* ---------- 响应路径解析（自定义模式） ---------- */
+  let _respPath = "data[].url";
+  const ctxPath = () => _respPath || "data[].url";
+  function resolvePath(obj, path) {
+    let cur = [obj];
+    for (const segRaw of String(path || "").split(".").filter(Boolean)) {
+      const next = [];
+      const idxMatch = segRaw.match(/^(.+)\[(\d+)\]$/);
+      if (idxMatch) {
+        const key = idxMatch[1], idx = Number(idxMatch[2]);
+        for (const o of cur) {
+          const v = o?.[key];
+          if (Array.isArray(v) && v[idx] !== undefined) next.push(v[idx]);
+        }
+      } else {
+        const flatten = segRaw.endsWith("[]");
+        const seg = segRaw.replace(/\[\]$/, "");
+        for (const o of cur) {
+          if (o == null) continue;
+          const v = o[seg];
+          if (v === undefined) continue;
+          if (flatten && Array.isArray(v)) next.push(...v);
+          else next.push(v);
+        }
+      }
+      cur = next;
+    }
+    return cur;
+  }
+
+  /* ======================================================================
+   * 配置状态
+   * ==================================================================== */
+  const PROVIDER_KEYS = ["minimax", "openai", "gemini", "custom"];
+  const DEFAULT_CFG = {
+    provider: "minimax",
+    apiKey: "",
+    shareKey: true,
+    proxyPrefix: "",
+    providers: {}   // providerId -> { mode, baseUrl, path, authHeader, authPrefix, model, apiKey, aspect, n, seed, responseFormat, quality, optimizer, negativeMode, extraJson, bodyTemplate, respPath }
+  };
+
+  let cfg = JSON.parse(JSON.stringify(DEFAULT_CFG));
+  let history = [];
+  let referenceDataUrl = null;
+  let abortCtl = null;
+  let lightboxSrc = "";
+
+  const P = () => cfg.provider;
+  const profile = () => PROFILES[P()];
+  const mode = () => {
+    const p = profile();
+    const cur = p.modes.find(m => m.id === (cfg.providers[P()] || {}).mode) || p.modes[0];
+    return cur;
+  };
+
+  /* ---------------- 工具 ---------------- */
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const stamp = () => new Date().toLocaleTimeString("zh-CN", { hour12: false });
+  function log(msg, kind = "info") {
+    const box = $("logBox");
+    const line = document.createElement("div");
+    line.innerHTML = `<span class="t">[${stamp()}]</span> <span class="${kind}">${esc(msg)}</span>`;
+    box.appendChild(line);
+    box.scrollTop = box.scrollHeight;
+  }
+  function setStatus(text, kind) {
+    $("statusText").textContent = text;
+    $("statusDot").className = "dot" + (kind ? " " + kind : "");
+  }
+
+  /* ---------------- 提示词组装 ---------------- */
+  function negativeText() { return ($("pNegative").value || "").trim(); }
+  function negativeModeValue() { return $("negativeMode").value; }
+  function buildPrompt() {
+    const parts = [];
+    ["pMain", "pStyle", "pDetail", "pLight", "pCam"].forEach(id => {
+      const v = ($(id).value || "").trim();
+      if (v) parts.push(v);
+    });
+    let prompt = parts.join("，");
+    const neg = negativeText();
+    if (neg && negativeModeValue() === "inline") {
+      prompt = prompt ? prompt + "。避免出现：" + neg : "避免出现：" + neg;
+    }
+    return prompt;
+  }
+  function refreshPreview() {
+    const p = buildPrompt();
+    $("promptPreview").textContent = p || "（请先填写主体描述）";
+  }
+
+  /* ---------------- 存取 ---------------- */
+  function saveCfg() {
+    try { localStorage.setItem(LS_CFG, JSON.stringify(cfg)); log("配置已保存。", "ok"); }
+    catch (e) { log("配置保存失败：" + e.message, "err"); }
+  }
+  function loadCfg() {
+    try {
+      const raw = localStorage.getItem(LS_CFG);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        cfg = Object.assign(JSON.parse(JSON.stringify(DEFAULT_CFG)), saved);
+        cfg.providers = saved.providers || {};
+      }
+      const rawH = localStorage.getItem(LS_HIS);
+      if (rawH) history = JSON.parse(rawH);
+    } catch (e) { log("读取本地配置失败：" + e.message, "err"); }
+  }
+  function saveHistory() {
+    try { localStorage.setItem(LS_HIS, JSON.stringify(history.slice(0, 24))); }
+    catch (e) { log("历史记录持久化失败（超出配额），仅保留在内存。", "warn"); }
+  }
+
+  /* ---------------- 厂商级设置 ---------------- */
+  function pset() {
+    if (!cfg.providers[P()]) cfg.providers[P()] = {};
+    return cfg.providers[P()];
+  }
+  function applyModeDefaults(m, keepKeys = []) {
+    const s = pset();
+    const d = m.defaults || {};
+    s.mode = m.id;
+    for (const [k, v] of Object.entries(d)) {
+      if (keepKeys.includes(k)) continue;
+      if (s[k] === undefined) s[k] = v;
+    }
+    if (!s.aspect && m.aspectOptions?.length) s.aspect = m.aspectOptions[0][1];
+    if (!s.negativeMode && m.negativeModes?.length) s.negativeMode = m.negativeModes[0][0];
+    if (!s.quality && m.qualities?.length) s.quality = m.qualities[0][0];
+    if (!s.responseFormat && m.responseFormats?.length) s.responseFormat = m.responseFormats[0][0];
+  }
+
+  const FIELD_MAP = {
+    baseUrl: "baseUrl", path: "path", authHeader: "authHeader", authPrefix: "authPrefix",
+    model: "model", aspect: "aspect", n: "n", seed: "seed", responseFormat: "responseFormat",
+    quality: "quality", optimizer: "optimizer", negativeMode: "negativeMode", extraJson: "extraJson",
+    bodyTemplate: "bodyTemplate", respPath: "respPath"
+  };
+
+  function fillForm() {
+    const m = mode();
+    const s = pset();
+
+    // 厂商 / 模式
+    $("providerSel").value = P();
+    const mSel = $("modeSel");
+    mSel.innerHTML = mSel.options.length && mSel.dataset.for === P()
+      ? mSel.innerHTML
+      : profile().modes.map(x => `<option value="${esc(x.id)}">${esc(x.label)}</option>`).join("");
+    mSel.dataset.for = P();
+    mSel.value = m.id;
+    $("modeField").classList.toggle("hidden", profile().modes.length < 2);
+
+    // 连接相关
+    $("baseUrl").value = s.baseUrl ?? "";
+    $("path").value = s.path ?? "";
+    $("authHeader").value = s.authHeader ?? "";
+    $("authPrefix").value = s.authPrefix ?? "";
+    $("model").value = s.model ?? "";
+    $("modelList").innerHTML = (m.models || []).map(x => `<option value="${esc(x)}"></option>`).join("");
+
+    // 密钥
+    $("apiKey").value = cfg.apiKey || "";
+    $("shareKey").checked = !!cfg.shareKey;
+    $("providerKey").value = s.apiKey || "";
+    $("providerKeyWrap").classList.toggle("hidden", !!cfg.shareKey);
+    $("keyScopeHint").textContent = cfg.shareKey ? "全厂商共用" : "当前厂商专用（上方为全局 Key）";
+
+    $("proxyPrefix").value = cfg.proxyPrefix || "";
+
+    // 参数
+    fillSelect($("aspect"), m.aspectOptions, s.aspect);
+    $("aspectLabel").textContent = m.aspectLabel || "画面比例";
+    fillSelect($("quality"), m.qualities, s.quality);
+    fillSelect($("responseFormat"), m.responseFormats, s.responseFormat);
+    fillSelect($("negativeMode"), m.negativeModes, s.negativeMode);
+    $("n").value = s.n ?? 1;
+    $("seed").value = s.seed ?? "";
+    $("optimizer").checked = !!s.optimizer;
+    $("extraJson").value = s.extraJson ?? "";
+
+    // 可见性
+    $("qualityField").classList.toggle("hidden", !m.supports.quality);
+    $("seedField").classList.toggle("hidden", !m.supports.seed);
+    $("optimizerField").classList.toggle("hidden", !m.supports.optimizer);
+    $("responseFormatField").classList.toggle("hidden", !m.supports.responseFormat);
+    $("negativeModeField").classList.toggle("hidden", !m.negativeModes?.length);
+    const isCustom = P() === "custom";
+    $("customBodyCard").classList.toggle("hidden", !isCustom);
+    if (isCustom) {
+      $("bodyTemplate").value = s.bodyTemplate ?? "";
+      $("respPath").value = s.respPath ?? "";
+      _respPath = s.respPath || "data[].url";
+    }
+
+    // 参考图
+    $("cardRef").classList.toggle("hidden", !m.supports.reference);
+    $("refSupportNote").innerHTML = m.supports.reference
+      ? `当前模式支持参考图。MiniMax 使用 <code>subject_reference</code>；自定义模式下会注入 <code>{{refBase64}}</code>。`
+      : `当前模式不支持参考图，已隐藏该面板。`;
+
+    $("adapterNote").innerHTML = profile().note;
+    refreshPreview();
+  }
+
+  function fillSelect(sel, options, value) {
+    sel.innerHTML = (options || []).map(([v, l]) => `<option value="${esc(v)}">${esc(l)}</option>`).join("");
+    if (value !== undefined && value !== null && ![...sel.options].some(o => o.value === String(value))) {
+      // 保留自定义值
+      sel.insertAdjacentHTML("beforeend", `<option value="${esc(value)}">${esc(value)}（自定义）</option>`);
+    }
+    sel.value = value ?? "";
+  }
+
+  function readForm() {
+    const s = pset();
+    for (const [id, key] of Object.entries(FIELD_MAP)) {
+      const el = $(id);
+      if (!el) continue;
+      s[key] = el.type === "checkbox" ? el.checked : el.value;
+    }
+    s.n = Math.min(9, Math.max(1, parseInt(s.n, 10) || 1));
+    s.mode = $("modeSel").value;
+    cfg.provider = $("providerSel").value;
+    cfg.apiKey = $("apiKey").value;
+    cfg.shareKey = $("shareKey").checked;
+    s.apiKey = $("providerKey").value;
+    cfg.proxyPrefix = ($("proxyPrefix").value || "").trim().replace(/\/+$/, "");
+    if (P() === "custom") _respPath = $("respPath").value;
+  }
+
+  /* ---------------- 请求构造 ---------------- */
+  function effectiveKey() {
+    const s = pset();
+    return (!cfg.shareKey && s.apiKey) ? s.apiKey : (cfg.apiKey || "");
+  }
+  function buildUrl(m) {
+    const s = pset();
+    const base = (s.baseUrl || "").replace(/\/+$/, "");
+    let path = (s.path || "").trim();
+    if (!path.startsWith("/")) path = "/" + path;
+    path = path.split("{model}").join(encodeURIComponent(s.model || ""));
+    const proxy = (cfg.proxyPrefix || "").replace(/\/+$/, "");
+    return proxy ? proxy + path : base + path;
+  }
+  function buildHeaders(m) {
+    const s = pset();
+    const h = { "Content-Type": "application/json" };
+    const key = effectiveKey();
+    if (s.authHeader) h[s.authHeader] = (s.authPrefix || "") + key;
+    // 走本地代理时，告诉代理该转发到哪个上游（厂商 Base URL）
+    if (cfg.proxyPrefix) h["x-upstream-base"] = (s.baseUrl || "").replace(/\/+$/, "");
+    return h;
+  }
+  function buildContext(m) {
+    const s = pset();
+    const neg = negativeText();
+    const useNegField = neg && negativeModeValue() === "field";
+    const ctx = {
+      model: s.model || "",
+      prompt: buildPrompt(),
+      negative: useNegField ? neg : "",
+      aspect: s.aspect || "",
+      n: parseInt(s.n, 10) || 1,
+      quality: s.quality || "",
+      responseFormat: s.responseFormat || "",
+      optimizer: !!s.optimizer,
+      seed: s.seed,
+      bodyTemplate: s.bodyTemplate || ""
+    };
+    if (referenceDataUrl && m.supports.reference) {
+      const raw = referenceDataUrl.replace(/^data:image\/\w+;base64,/, "");
+      ctx.ref = { type: $("refType").value, base64: raw };
+    }
+    return ctx;
+  }
+  function buildPayload(m, ctx) {
+    const payload = m.build(ctx);
+    const extra = (pset().extraJson || "").trim();
+    if (extra) {
+      try {
+        const obj = JSON.parse(extra);
+        if (obj && typeof obj === "object" && !Array.isArray(obj)) Object.assign(payload, obj);
+        else log("附加参数不是 JSON 对象，已忽略。", "warn");
+      } catch (e) {
+        throw new Error("附加参数 JSON 解析失败：" + e.message);
+      }
+    }
+    return payload;
+  }
+
+  async function generate() {
+    readForm();
+    const m = mode();
+    if (!effectiveKey()) { log("请先填写 API Key。", "err"); setStatus("缺少 API Key", "err"); return; }
+    if (!buildPrompt()) { log("请填写主体描述。", "err"); return; }
+
+    const url = buildUrl(m);
+    let payload;
+    try { payload = buildPayload(m, buildContext(m)); }
+    catch (e) { log(e.message, "err"); return; }
+
+    $("btnGenerate").disabled = true;
+    $("btnCancel").disabled = false;
+    setStatus("生成中…", "busy");
+    $("currentResult").innerHTML = `<div class="empty"><div class="big">⏳</div>正在生成，请稍候…</div>`;
+    log(`POST ${url}`);
+    log(`headers: ${JSON.stringify(Object.keys(buildHeaders(m)))}`);
+    log(`payload: ${JSON.stringify(payload).slice(0, 900)}`);
+
+    abortCtl = new AbortController();
+    const t0 = performance.now();
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: buildHeaders(m),
+        body: JSON.stringify(payload),
+        signal: abortC.signal
+      });
+      const text = await res.text();
+      let data = null;
+      try { data = JSON.parse(text); } catch { /* 非 JSON */ }
+      const dt = ((performance.now() - t0) / 1000).toFixed(1);
+
+      if (!res.ok) {
+        const msg = (data?.error?.message) || (data?.base_resp?.status_msg) || (data?.message) || (data?.error?.error?.message) || text.slice(0, 400);
+        throw new Error(`HTTP ${res.status} · ${msg}`);
+      }
+      if (data?.base_resp && data.base_resp.status_code !== 0) {
+        throw new Error(`接口报错 ${data.base_resp.status_code} · ${data.base_resp.status_msg || ""}`);
+      }
+
+      const items = m.extract(data) || [];
+      if (!items.length) log("接口返回成功但没解析到图片：" + JSON.stringify(data).slice(0, 300), "warn");
+
+      renderCurrent(items, payload, dt);
+      pushHistory(items, payload, dt);
+      log(`生成成功，${items.length} 张，用时 ${dt}s`, "ok");
+      setStatus("就绪", "on");
+    } catch (err) {
+      const aborted = err.name === "AbortError";
+      log(aborted ? "请求已取消。" : "生成失败：" + err.message, aborted ? "warn" : "err");
+      setStatus(aborted ? "已取消" : "失败", aborted ? "" : "err");
+      $("currentResult").innerHTML = `<div class="empty"><div class="big">${aborted ? "🛑" : "⚠️"}</div>${esc(aborted ? "已取消本次生成。" : "生成失败：" + err.message)}</div>`;
+    } finally {
+      abortC = null;
+      $("btnGenerate").disabled = false;
+      $("btnCancel").disabled = true;
+    }
+  }
+
+  /* ---------------- 渲染 ---------------- */
+  function renderCurrent(items, payload, dt) {
+    const wrap = $("currentResult");
+    if (!items.length) { wrap.innerHTML = `<div class="empty">接口未返回可解析的图片</div>`; return; }
+    $("resultMeta").textContent = `${items.length} 张 · ${dt}s · ${payload.model || P()} · ${payload.aspect_ratio || payload.size || payload.parameters?.aspectRatio || ""}`;
+    wrap.innerHTML = `<div class="grid-imgs">${items.map((it, i) => cellHTML(it, i)).join("")}</div>`;
+  }
+  function cellHTML(it, i) {
+    return `<div class="img-cell act-open" data-src="${esc(it.src)}" data-type="${it.type}">
+      <img src="${esc(it.src)}" alt="生成结果 ${i + 1}" loading="lazy" />
+      <div class="tools">
+        <button class="btn tiny act-download">下载</button>
+        <button class="btn tiny act-copy">复制</button>
+        <button class="btn tiny act-open">放大</button>
+      </div>
+    </div>`;
+  }
+  function pushHistory(items, payload, dt) {
+    const now = new Date().toISOString();
+    items.forEach(it => {
+      history.unshift({
+        src: it.src, type: it.type,
+        prompt: payload.prompt || payload.instances?.[0]?.prompt || payload.contents?.[0]?.parts?.[0]?.text || "",
+        model: payload.model || pset().model || "",
+        provider: P(),
+        time: now
+      });
+    });
+    history = history.slice(0, 24);
+    saveHistory();
+    renderHistory();
+  }
+  function renderHistory() {
+    const el = $("historyList");
+    if (!history.length) { el.innerHTML = `<div class="empty">暂无历史记录</div>`; return; }
+    el.innerHTML = history.map((h, i) => `
+      <div class="hist-item">
+        <img src="${esc(h.src)}" alt="历史 ${i + 1}" data-src="${esc(h.src)}" class="act-open" />
+        <div class="hist-meta">
+          <div class="p">${esc(h.prompt || "(无提示词)")}</div>
+          <div class="t">${esc(h.provider || "")} · ${esc(h.model || "")} · ${new Date(h.time).toLocaleString("zh-CN", { hour12: false })}</div>
+          <div class="hist-actions">
+            <button class="btn tiny act-download" data-src="${esc(h.src)}">下载</button>
+            <button class="btn tiny act-open" data-src="${esc(h.src)}">放大</button>
+            <button class="btn tiny act-copy" data-src="${esc(h.src)}">复制</button>
+            <button class="btn tiny danger act-del" data-i="${i}">删除</button>
+          </div>
+        </div>
+      </div>`).join("");
+  }
+
+  /* ---------------- 下载 / 复制 / 放大 ---------------- */
+  async function download(src) {
+    try {
+      let blob, name;
+      if (src.startsWith("data:")) {
+        blob = await (await fetch(src)).blob();
+        name = "image-" + Date.now() + ".png";
+      } else {
+        const res = await fetch(src);
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        blob = await res.blob();
+        const ext = (src.match(/\.(png|jpe?g|webp)(?:\?|$)/i) || [, "png"])[1].toLowerCase();
+        name = "image-" + Date.now() + "." + (ext === "jpg" ? "jpeg" : ext);
+      }
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+      log("已下载：" + name, "ok");
+    } catch (e) {
+      log("下载失败：" + e.message + "（跨域资源可能无法直接下载，可复制链接后手动获取）", "err");
+    }
+  }
+  async function copy(src) {
+    try { await navigator.clipboard.writeText(src); log("已复制到剪贴板。", "ok"); }
+    catch {
+      const ta = document.createElement("textarea");
+      ta.value = src; document.body.appendChild(ta); ta.select();
+      try { document.execCommand("copy"); log("已复制到剪贴板。", "ok"); } catch { log("复制失败。", "err"); }
+      ta.remove();
+    }
+  }
+  function openLightbox(src) { lightboxSrc = src; $("lightboxImg").src = src; $("lightbox").classList.add("on"); }
+
+  /* ---------------- 参考图 ---------------- */
+  function readFileAsDataURL(file) {
+    return new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(new Error("读取文件失败"));
+      r.readAsDataURL(file);
+    });
+  }
+
+  /* ---------------- 事件 ---------------- */
+  function bind() {
+    document.querySelectorAll(".card-head").forEach(head => {
+      head.addEventListener("click", () => head.parentElement.classList.toggle("collapsed"));
+    });
+
+    $("btnGenerate").addEventListener("click", generate);
+    $("btnCancel").addEventListener("click", () => { if (abortCtl) { abortC.abort(); log("已请求取消。", "warn"); } });
+    $("btnSaveCfg").addEventListener("click", () => { readForm(); saveCfg(); });
+    $("btnResetCfg").addEventListener("click", () => {
+      if (!confirm("确定重置所有配置与历史吗？")) return;
+      localStorage.removeItem(LS_CFG); localStorage.removeItem(LS_HIS);
+      location.reload();
+    });
+    $("btnToggleKey").addEventListener("click", () => {
+      const el = $("apiKey");
+      el.type = el.type === "password" ? "text" : "password";
+    });
+
+    // 切换厂商：保存当前厂商设置 → 载入新厂商设置
+    $("providerSel").addEventListener("change", () => {
+      readForm();
+      const next = $("providerSel").value;
+      cfg.provider = next;
+      applyModeDefaults(mode());
+      fillForm();
+      log("已切换厂商：" + profile().label, "info");
+    });
+    // 切换模式
+    $("modeSel").addEventListener("change", () => {
+      readForm();
+      const m = profile().modes.find(x => x.id === $("modeSel").value) || profile().modes[0];
+      const s = pset();
+      const keptKey = s.apiKey;
+      for (const k of Object.keys(s)) delete s[k];
+      s.apiKey = keptKey;
+      applyModeDefaults(m);
+      fillForm();
+      log("已切换模式：" + m.label, "info");
+    });
+
+    $("shareKey").addEventListener("change", () => {
+      cfg.shareKey = $("shareKey").checked;
+      $("providerKeyWrap").classList.toggle("hidden", cfg.shareKey);
+    });
+
+    // 文本域
+    ["pMain", "pStyle", "pDetail", "pLight", "pCam", "pNegative"].forEach(id => {
+      const el = $(id);
+      el.addEventListener("input", () => { updateCharCount(); refreshPreview(); });
+      el.addEventListener("keydown", (e) => { if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); generate(); } });
+    });
+    document.addEventListener("keydown", (e) => {
+      if (e.ctrlKey && e.key === "Enter" && !e.target.closest("textarea")) { e.preventDefault(); generate(); }
+    });
+
+    $("btnRandSeed").addEventListener("click", () => { $("seed").value = Math.floor(Math.random() * 2147483647); });
+
+    $("refFile").addEventListener("change", async (e) => {
+      const f = e.target.files && e.target.files[0];
+      if (!f) return;
+      if (f.size > 20 * 1024 * 1024) { log("参考图过大（>20MB），请压缩后再上传。", "err"); return; }
+      try {
+        referenceDataUrl = await readFileAsDataURL(f);
+        $("refPreview").src = referenceDataUrl;
+        $("refPreviewWrap").style.display = "";
+        $("refName").textContent = `${f.name} · ${(f.size / 1024).toFixed(0)} KB`;
+        log("参考图已载入。", "ok");
+      } catch (err) { log(err.message, "err"); }
+    });
+    $("btnClearRef").addEventListener("click", () => {
+      referenceDataUrl = null; $("refFile").value = "";
+      $("refPreviewWrap").style.display = "none"; $("refName").textContent = "";
+    });
+
+    $("btnClearHistory").addEventListener("click", () => {
+      if (!confirm("清空全部历史记录？")) return;
+      history = []; saveHistory(); renderHistory();
+    });
+
+    document.body.addEventListener("click", (e) => {
+      const dl = e.target.closest(".act-download");
+      const cp = e.target.closest(".act-copy");
+      const op = e.target.closest(".act-open");
+      const del = e.target.closest(".act-del");
+      if (dl) { const s = dl.dataset.src || dl.closest("[data-src]")?.dataset.src; if (s) download(s); return; }
+      if (cp) { const s = cp.dataset.src || cp.closest("[data-src]")?.dataset.src; if (s) copy(s); return; }
+      if (op) { const s = op.dataset.src || op.closest("[data-src]")?.dataset.src; if (s) openLightbox(s); return; }
+      if (del) { history.splice(parseInt(del.dataset.i, 10), 1); saveHistory(); renderHistory(); }
+    });
+
+    $("lbClose").addEventListener("click", () => $("lightbox").classList.remove("on"));
+    $("lightbox").addEventListener("click", (e) => { if (e.target.id === "lightbox") $("lightbox").classList.remove("on"); });
+    $("lbDownload").addEventListener("click", () => { if (lightboxSrc) download(lightboxSrc); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") $("lightbox").classList.remove("on"); });
+
+    window.addEventListener("beforeunload", () => { readForm(); saveCfg(); });
+  }
+
+  function updateCharCount() {
+    [["pMain", "cnt-main"], ["pStyle", "cnt-style"], ["pDetail", "cnt-detail"], ["pLight", "cnt-light"], ["pCam", "cnt-cam"], ["pNegative", "cnt-neg"]]
+      .forEach(([id, cid]) => { const c = $(cid); if (c) c.textContent = ($(id).value || "").length; });
+  }
+
+  /* ---------------- 启动 ---------------- */
+  function init() {
+    $("providerSel").innerHTML = Object.entries(PROFILES)
+      .map(([id, p]) => `<option value="${esc(id)}">${esc(p.label)}</option>`).join("");
+    loadCfg();
+    // 保证当前厂商有设置
+    applyModeDefaults(mode());
+    fillForm();
+    bind();
+    renderHistory();
+    setStatus(effectiveKey() ? "已配置 API Key" : "未配置", effectiveKey() ? "on" : "");
+    log(`适配器就绪：${profile().label} / ${mode().label}`, "info");
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>

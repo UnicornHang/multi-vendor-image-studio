@@ -1,0 +1,46 @@
+{
+  "channels": [
+    {
+      "id": "minimax-main",
+      "provider": "minimax",
+      "mode": "image_generation",
+      "enabled": true,
+      "priority": 10,
+      "models": ["image-01", "image-01-live"],
+      "baseUrl": "https://api.minimaxi.com",
+      "path": "/v1/image_generation",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer ",
+      "model": "image-01",
+      "apiKeyEnv": "MINIMAX_API_KEY"
+    },
+    {
+      "id": "openai-main",
+      "provider": "openai",
+      "mode": "images_generations",
+      "enabled": true,
+      "priority": 10,
+      "models": ["gpt-image-1", "dall-e-3", "dall-e-2"],
+      "baseUrl": "https://api.openai.com",
+      "path": "/v1/images/generations",
+      "authHeader": "Authorization",
+      "authPrefix": "Bearer ",
+      "model": "gpt-image-1",
+      "apiKeyEnv": "OPENAI_API_KEY"
+    },
+    {
+      "id": "gemini-imagen",
+      "provider": "gemini",
+      "mode": "imagen",
+      "enabled": true,
+      "priority": 20,
+      "models": ["imagen-3.0-generate-002", "imagen-3.0-capability-001"],
+      "baseUrl": "https://generativelanguage.googleapis.com",
+      "path": "/v1beta/models/{model}:predict",
+      "authHeader": "x-goog-api-key",
+      "authPrefix": "",
+      "model": "imagen-3.0-generate-002",
+      "apiKeyEnv": "GEMINI_API_KEY"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "name": "@studio/server",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "多厂商图像生成工作台 · Node 后端（适配层 + 转发 + 历史存储）",
+  "main": "src/index.js",
+  "scripts": {
+    "dev": "node scripts/dev-server.js",
+    "start": "node src/index.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.21.2"
+  },
+  "engines": {
+    "node": ">=18.17"
+  }
+}

@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.vite/
+.env
+server/data/
+server/data-*/
+server/channels.json
+*.log
+.DS_Store
+.vscode/
+.idea/
